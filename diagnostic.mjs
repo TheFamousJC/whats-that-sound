@@ -1,4 +1,4 @@
-export const MODEL = 'gemini-2.5-flash';
+export const MODEL = 'gemini-3.5-flash-lite';
 export const MAX_BYTES = 6 * 1024 * 1024;
 export const TYPES = new Set(['audio/wav','audio/x-wav','audio/mpeg','audio/mp3','audio/mp4','audio/x-m4a','audio/aac','audio/ogg','audio/webm','audio/flac']);
 export function validateInput(body) {

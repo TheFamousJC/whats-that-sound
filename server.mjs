@@ -6,6 +6,17 @@ import {MODEL,validateInput,buildRequest,validateReport} from './diagnostic.mjs'
 const root=fileURLToPath(new URL('.',import.meta.url));
 const configured=()=>Boolean(process.env.GEMINI_API_KEY) && process.env.GEMINI_FREE_TIER_CONFIRMED==='true';
 let active=false;
+let connectionCheck=null,connectionCheckedAt=0;
+async function checkConnection(){
+  if(!configured())return {configured:false,model:MODEL,dailyLimit:20};
+  if(connectionCheck&&Date.now()-connectionCheckedAt<60000)return connectionCheck;
+  try{
+    const response=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${MODEL}`,{headers:{'x-goog-api-key':process.env.GEMINI_API_KEY},signal:AbortSignal.timeout(10000)});
+    if(!response.ok){connectionCheck={configured:false,model:MODEL,error:response.status===429?'Gemini is temporarily rate limited. Analysis is paused.':response.status===400||response.status===401||response.status===403?'Gemini rejected the key or project access. Check the local key and API permissions.':'The configured Gemini model is unavailable. Analysis is paused.'};}
+    else {const model=await response.json();connectionCheck={configured:Array.isArray(model.supportedGenerationMethods)&&model.supportedGenerationMethods.includes('generateContent'),model:MODEL,dailyLimit:20};if(!connectionCheck.configured)connectionCheck.error='This Gemini model does not support the required audio request workflow.';}
+  }catch{connectionCheck={configured:false,model:MODEL,error:'Could not reach Gemini. Check the internet connection and retry later.'};}
+  connectionCheckedAt=Date.now();return connectionCheck;
+}
 async function reserveRequest(){
   const file=path.join(root,'work','quota.json'),today=new Date().toISOString().slice(0,10);
   let state; try {state=JSON.parse(await readFile(file,'utf8'));} catch(e){if(e.code!=='ENOENT') throw Error('Usage storage unavailable; analysis is paused.'); state={day:today,count:0,last:0};}
@@ -18,7 +29,7 @@ async function reserveRequest(){
 const server=http.createServer(async(req,res)=>{
  const send=(code,data,type='application/json')=>{res.writeHead(code,{'Content-Type':type,'X-Content-Type-Options':'nosniff','Referrer-Policy':'no-referrer','Cache-Control':'no-store','Content-Security-Policy':"default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; media-src 'self' blob:; connect-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'none'"});res.end(type==='application/json'?JSON.stringify(data):data);};
  const url=new URL(req.url,'http://localhost');
- if(req.method==='GET'&&url.pathname==='/api/status') return send(200,{configured:configured(),model:MODEL,dailyLimit:20});
+ if(req.method==='GET'&&url.pathname==='/api/status') return send(200,await checkConnection());
  if(req.method==='POST'&&url.pathname==='/api/diagnose'){
    if(!configured()) return send(503,{error:'Gemini is not connected. This app has not analyzed your recording. Free-tier setup is required.'});
    const origin=req.headers.origin;let sameOrigin=false;try{sameOrigin=Boolean(origin)&&new URL(origin).host===req.headers.host;}catch{}if(!sameOrigin) return send(403,{error:'Open the app on this server before submitting.'});
@@ -30,7 +41,12 @@ const server=http.createServer(async(req,res)=>{
      let body;try{body=JSON.parse(Buffer.concat(chunks).toString());}catch{throw Error('Invalid request.');}validateInput(body);
      await reserveRequest();
      const response=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`,{method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':process.env.GEMINI_API_KEY},body:JSON.stringify(buildRequest(body)),signal:AbortSignal.timeout(60000)});
-     if(!response.ok){if(response.status===429)return send(429,{error:'Gemini’s free quota is unavailable or exhausted. No paid fallback or automatic retry was used.'});return send(502,{error:'Gemini could not complete this analysis. Check free-tier access and try later.'});}
+     if(!response.ok){
+       let providerCode='UNKNOWN';try{const failure=await response.json();providerCode=failure.error?.status||'UNKNOWN';}catch{}
+       console.error(JSON.stringify({event:'gemini_request_rejected',httpStatus:response.status,providerCode}));
+       if(response.status===429)return send(429,{error:'Gemini’s free quota is unavailable or exhausted. No paid fallback or automatic retry was used.'});
+       return send(502,{error:'Gemini rejected the audio request. Analysis is paused; no paid fallback or automatic retry was used.',upstreamStatus:response.status,providerCode});
+     }
      const data=await response.json();const candidate=data.candidates?.[0];if(candidate?.finishReason!=='STOP')throw Error('Gemini did not finish a usable report. No diagnosis was produced.');
      let report;try{report=validateReport(JSON.parse(candidate.content.parts.map(p=>p.text||'').join('')));}catch{throw Error('Gemini returned an incomplete report. No diagnosis was produced.');}
      return send(200,{report,model:MODEL});

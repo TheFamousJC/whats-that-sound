@@ -6,9 +6,13 @@ A mechanical-noise workbench for cars, refrigerators, washing machines and other
 
 The public site is a working interface preview: recording, playback, waveform and a clearly labeled fictional report. Gemini is intentionally disconnected until the owner connects a billing-disabled free-tier project. No recording is analyzed in preview mode. No API key is included.
 
+Real audio requests have been verified locally with Gemini 3.5 Flash-Lite on October 27, 2026. The owner’s credential is stored only in an ignored local environment file with restricted Windows permissions. The public static site still has no backend or credential and remains in demo mode. A successful synthetic-tone test verifies the integration, not diagnostic accuracy on mechanical faults.
+
 ## Run locally
 
 Install Node.js 22 or newer, then run `npm start`. Open http://127.0.0.1:8787. There are no package dependencies or install step. Run `npm test` for validation checks.
+
+On Windows, `Start App.cmd` also starts the server. If `.env.local` sets `PORT`, use the address printed by the server instead (the owner’s local setup uses port 8788). Keep the server running while using the local app. The connection indicator checks the key and model access using a metadata request before enabling analysis. Provider overload, quota limits and model access errors do not trigger automatic retries or model switching.
 
 ## Connect Gemini later — strictly $0
 
@@ -17,7 +21,7 @@ Install Node.js 22 or newer, then run `npm start`. Open http://127.0.0.1:8787. T
 3. Copy `.env.example` to `.env.local`, enter the key locally and set `GEMINI_FREE_TIER_CONFIRMED=true` only after verifying billing is disabled. Restart `npm start`.
 4. Use an audio recording with a known, confirmed fault to evaluate the result. General audio understanding is not evidence of accurate component-level diagnosis.
 
-The app uses only `gemini-2.5-flash`, with no model fallback, paid tools, or automatic retries. It serializes inference, caps clips at 60 seconds / 6 MB, persists a 20-request daily limit in `work/quota.json`, and spaces requests by at least 15 seconds. The local day counter uses UTC. Failed upstream requests also consume this allowance. Keep the quota file between restarts; it is never a billing guarantee. **Only keeping the Google project off paid billing prevents API charges.** Free quotas and model availability may change. Quota exhaustion produces an error, not a fabricated report.
+The app uses only `gemini-3.5-flash-lite`, with no model fallback, paid tools, or automatic retries. It serializes inference, caps clips at 60 seconds / 6 MB, persists a 20-request daily limit in `work/quota.json`, and spaces requests by at least 15 seconds. The local day counter uses UTC. Failed upstream requests also consume this allowance. Keep the quota file between restarts; it is never a billing guarantee. **Only keeping the Google project off paid billing prevents API charges.** Free quotas and model availability may change. Quota exhaustion produces an error, not a fabricated report.
 
 ## Hosting
 
