@@ -21,7 +21,7 @@ const server=http.createServer(async(req,res)=>{
  if(req.method==='GET'&&url.pathname==='/api/status') return send(200,{configured:configured(),model:MODEL,dailyLimit:20});
  if(req.method==='POST'&&url.pathname==='/api/diagnose'){
    if(!configured()) return send(503,{error:'Gemini is not connected. This app has not analyzed your recording. Free-tier setup is required.'});
-   const origin=req.headers.origin; if(!origin || new URL(origin).host!==req.headers.host) return send(403,{error:'Open the app on this server before submitting.'});
+   const origin=req.headers.origin;let sameOrigin=false;try{sameOrigin=Boolean(origin)&&new URL(origin).host===req.headers.host;}catch{}if(!sameOrigin) return send(403,{error:'Open the app on this server before submitting.'});
    if(!req.headers['content-type']?.startsWith('application/json'))return send(415,{error:'JSON required.'});
    if(active)return send(429,{error:'Another recording is being analyzed. Please try again shortly.'});
    active=true;
@@ -40,4 +40,4 @@ const server=http.createServer(async(req,res)=>{
  if(req.method!=='GET'||!files[url.pathname])return send(404,{error:'Not found'});
  try{const f=files[url.pathname];send(200,await readFile(path.join(root,'public',f)),f.endsWith('.css')?'text/css':f.endsWith('.js')?'text/javascript':f.endsWith('.svg')?'image/svg+xml':'text/html; charset=utf-8');}catch{send(500,{error:'Unable to load application'});}
 });
-server.listen(Number(process.env.PORT)||8787,process.env.HOST||'127.0.0.1',()=>console.log(`What’s That Sound? http://127.0.0.1:${server.address().port}`));
+server.listen(process.env.PORT===undefined?8787:Number(process.env.PORT),process.env.HOST||'127.0.0.1',()=>console.log(`What’s That Sound? http://127.0.0.1:${server.address().port}`));

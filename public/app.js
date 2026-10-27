@@ -3,7 +3,7 @@ let machine='Car',selectedFile=null,audioURL=null,duration=0,recorder=null,strea
 const message=text=>{$('#form-message').textContent=text;};
 function sync(){ $('#analyze').disabled=processing||!ready||!selectedFile||recorder?.state==='recording'; }
 document.querySelectorAll('.machine').forEach(button=>button.addEventListener('click',()=>{machine=button.dataset.machine;document.querySelectorAll('.machine').forEach(b=>{b.classList.toggle('selected',b===button);b.setAttribute('aria-pressed',String(b===button));});}));
-async function loadStatus(){try{const r=await fetch('/api/status');if(!r.ok)throw Error();const s=await r.json();ready=s.configured;$('#connection').textContent=ready?'● Gemini connected · Free-tier mode':'○ Gemini not connected · Preview mode';$('#connection').classList.toggle('ready',ready);if(!ready)message('Explore the workbench or view an example. Live analysis is off until Gemini is connected.');}catch{$('#connection').textContent='○ Static preview · Gemini backend needed';message('Recording works locally. Live analysis requires the included server and free-tier setup.');}sync();}
+async function loadStatus(){sync();try{const r=await fetch('/api/status',{signal:AbortSignal.timeout(5000)});if(!r.ok)throw Error();const s=await r.json();ready=s.configured;$('#connection').textContent=ready?'● Gemini connected · Free-tier mode':'○ Gemini not connected · Preview mode';$('#connection').classList.toggle('ready',ready);if(!ready)message('Explore the workbench or view an example. Live analysis is off until Gemini is connected.');}catch{$('#connection').textContent='○ Static preview · Gemini backend needed';message('Recording works locally. Live analysis requires the included server and free-tier setup.');}sync();}
 function clearAudio(){selectedFile=null;duration=0;if(audioURL)URL.revokeObjectURL(audioURL);audioURL=null;$('#player').removeAttribute('src');$('#audio-preview').hidden=true;$('#audio-file').value='';sync();}
 $('#remove-audio').addEventListener('click',clearAudio);
 async function acceptFile(file){
@@ -11,7 +11,7 @@ async function acceptFile(file){
  if(file.size>6*1024*1024){message('Recording is too large. Please use a clip under 6 MB.');return;}
  const url=URL.createObjectURL(file),probe=new Audio(url);
  try{
-  await new Promise((resolve,reject)=>{probe.onloadedmetadata=resolve;probe.onerror=()=>reject(Error('This browser could not read that recording. Try WAV or MP3.'));});
+  await new Promise((resolve,reject)=>{const timeout=setTimeout(()=>reject(Error('Reading the recording timed out. Try WAV or MP3.')),10000);probe.onloadedmetadata=()=>{clearTimeout(timeout);resolve();};probe.onerror=()=>{clearTimeout(timeout);reject(Error('This browser could not read that recording. Try WAV or MP3.'));};});
   let d=probe.duration,decoded;
   if(!Number.isFinite(d)){const context=new AudioContext();try{decoded=await context.decodeAudioData(await file.arrayBuffer());d=decoded.duration;}finally{await context.close();}}
   if(!Number.isFinite(d)||d<1||d>60.2)throw Error('Use a recording between 1 and 60 seconds.');
