@@ -13,3 +13,9 @@ test('sends actual audio and context with cautious instructions',()=>{
 test('rejects malformed reports rather than showing a false verdict',()=>{
  const report={summary:'Need more detail',urgency:'uncertain',observations:[],causes:[],questions:['Which model?'],nextSteps:[]};assert.equal(validateReport(report),report);assert.throws(()=>validateReport({...report,urgency:'confirmed'}));assert.throws(()=>validateReport({...report,causes:[{part:'Bearing',difficulty:'Guaranteed'}]}));
 });
+
+ test('human and animal sources use nonclinical sound interpretation instead of repair advice',()=>{
+  for(const machine of ['Human','Animal']){
+   const input={...valid,machine};assert.doesNotThrow(()=>validateInput(input));const instructions=buildRequest(input).systemInstruction.parts[0].text;assert.match(instructions,/Do not diagnose or speculate/);assert.match(instructions,/Do not give treatment/);assert.match(instructions,/Professional or Unknown/);
+  }
+ });

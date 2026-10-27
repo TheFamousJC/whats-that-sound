@@ -48,3 +48,5 @@ Results suggest explanations, not confirmed failed components or calibrated accu
 - [Billing status](https://ai.google.dev/gemini-api/docs/billing)
 
 Built by TheFamousJC. Released under the MIT License; see LICENSE.
+
+For Human and Animal sources, the app describes audible characteristics and asks contextual questions only. It is not a medical or veterinary diagnostic service and does not offer treatment or DIY repair advice for living beings. Severe breathing difficulty, collapse, or immediate distress warrants urgent professional help rather than waiting for an AI report. Safety guidance references: https://www.nhs.uk/symptoms/shortness-of-breath/ and https://www.pdsa.org.uk/pet-help-and-advice/pet-health-hub/other-veterinary-advice/first-aid-for-pets-struggling-to-breathe
